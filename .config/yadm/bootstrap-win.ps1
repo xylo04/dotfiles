@@ -2,6 +2,9 @@ $installProgramming = Read-Host -Prompt "Install programming packages? (y/n)"
 $installHam = Read-Host -Prompt "Install ham radio packages? (y/n)"
 $installGames = Read-Host -Prompt "Install gaming packages? (y/n)"
 
+# Install WinGet (App Installer)
+Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe
+
 # Core packages, I always want these installed
 winget install -e --id Microsoft.PowerShell
 winget install -e --id Microsoft.VisualStudioCode

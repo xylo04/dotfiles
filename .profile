@@ -81,6 +81,13 @@ if [ -d /opt/homebrew ]; then
   eval "$(/opt/homebrew/bin/brew shellenv)"
 fi
 
+# Android SDK
+if [ -d $HOME/Library/Android/sdk ]; then
+    export ANDROID_HOME=$HOME/Library/Android/sdk
+    export PATH=$PATH:$ANDROID_HOME/emulator
+    export PATH=$PATH:$ANDROID_HOME/platform-tools
+fi
+
 EDITOR=vi
 GO111MODULE=on
 GPG_TTY=$(tty)
