@@ -12,6 +12,7 @@ gjf = !~/git/dotfiles/gitgjf
 lsskip = !git ls-files -v . | grep ^S
 skip = update-index --skip-worktree
 unskip = update-index --no-skip-worktree
+	myclean = clean -fdx --exclude=.idea --exclude=.env
 
 [diff]
 tool = vscode
@@ -40,7 +41,7 @@ editor = vi
 autocrlf = input
 
 [filter "lfs"]
-clean = git-lfs clean -- %f
-smudge = git-lfs smudge -- %f
-process = git-lfs filter-process
-required = true
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
