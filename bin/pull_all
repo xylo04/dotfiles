@@ -23,6 +23,10 @@ function git_pull {
 			return
 		fi
 	fi
+	if git config --get pull.skip | grep -q 'true'; then
+		echo  "$1 pull.skip"
+		return
+	fi
 	branch=$(git symbolic-ref --short -q HEAD)
     echo -n "$1 "
     # if branch is not main or master, print it in red
