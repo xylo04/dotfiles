@@ -13,6 +13,7 @@ gjf = !~/git/dotfiles/gitgjf
 lsskip = !git ls-files -v . | grep ^S
 skip = update-index --skip-worktree
 unskip = update-index --no-skip-worktree
+myclean = clean -fdx --exclude=.idea --exclude=.env
 
 [diff]
 tool = vscode

@@ -139,13 +139,7 @@ if command -v tmux &> /dev/null ; then
     if [[ "$TERM" != "screen" && -z "$TERM_PROGRAM" && -z "$TERMINAL_EMULATOR" ]]; then
         # Attempt to discover a detached session and attach 
         # it, else create a new session
-
-        WHOAMI=$(whoami)
-        if tmux has-session -t $WHOAMI 2>/dev/null; then
-            tmux -2 attach-session -t $WHOAMI
-        else
-            tmux -2 new-session -s $WHOAMI
-        fi
+        tmux new -A -s $USER
     else
         if [ ! -n "$SSH_CLIENT" ] || [ ! -n "$SSH_TTY" ]; then
 
@@ -161,5 +155,6 @@ if command -v tmux &> /dev/null ; then
         fi
     fi
 fi
+alias tmx='tmux new -A -s $USER'
 
 export BASH_SILENCE_DEPRECATION_WARNING=1
