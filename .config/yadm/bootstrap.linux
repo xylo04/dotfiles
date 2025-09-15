@@ -20,7 +20,7 @@ if [ $installDev = "y" ]; then
 
   sudo add-apt-repository ppa:longsleep/golang-backports -y
   sudo apt update
-  installPkgs="$installPkgs openjdk-18-jdk golang-go python3 python3-pip yubikey-manager yubikey-personalization-gui"
+  installPkgs="$installPkgs golang-go python3 python3-pip yubikey-manager yubikey-personalization"
 fi
 
 if [ $installHam = "y" ]; then
@@ -36,6 +36,7 @@ sudo apt install -y $installPkgs
   
 sudo systemctl enable pcscd.service && sudo systemctl start pcscd.service
 sudo useradd docker
+sudo useradd vboxusers
 sudo usermod -a -G dialout,tty,audio,plugdev,docker,vboxusers $USER
 
 if [ $installDev = "y" ]; then
