@@ -13,11 +13,11 @@ cd $SRC
 SRC=`pwd`
 echo "Installing npm deps for all projects in $SRC"
 
-npmdirs=$(find "${SRC}" -name package.json | grep -v node_modules | sed "s/package.json//g")
+npmdirs=$(find "${SRC}" -name package.json | grep -v node_modules | grep -v .angular | sed "s/package.json//g")
 for f in $npmdirs; do
     echo "Installing npm deps for $f"
     cd $f
     nvm use
-    npm install
+    npm ci || npm install
 done
 cd "$START"
