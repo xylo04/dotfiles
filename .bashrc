@@ -157,8 +157,4 @@ if command -v tmux &> /dev/null ; then
 fi
 alias tmx='tmux new -A -s $USER'
 
-if command -v gh &> /dev/null ; then
-    eval "$(gh copilot alias -- bash)"
-fi
-
 export BASH_SILENCE_DEPRECATION_WARNING=1
