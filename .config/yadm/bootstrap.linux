@@ -43,3 +43,6 @@ if [ $installDev = "y" ]; then
   pip3 install -r ~/bin/requirements.txt
   wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
 fi
+
+sudo cp ~/.config/yadm/*.rules /etc/udev/rules.d/
+
