@@ -92,13 +92,3 @@ EDITOR=vi
 GO111MODULE=on
 GPG_TTY=$(tty)
 
-# Debian packaging
-DEBEMAIL="xylo04@gmail.com"
-DEBFULLNAME="Chris Keller"
-HISTCONTROL=ignoreboth
-if [ -f /usr/lib/mc/mc.sh ]; then
-    . /usr/lib/mc/mc.sh
-fi
-alias dquilt="quilt --quiltrc=${HOME}/.quiltrc-dpkg"
-complete -F _quilt_completion $_quilt_complete_opt dquilt
-
