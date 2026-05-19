@@ -2,9 +2,6 @@ $installProgramming = Read-Host -Prompt "Install programming packages? (y/n)"
 $installHam = Read-Host -Prompt "Install ham radio packages? (y/n)"
 $installGames = Read-Host -Prompt "Install gaming packages? (y/n)"
 
-# Install WinGet (App Installer)
-Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe
-
 # Core packages, I always want these installed
 winget install -e --id Microsoft.PowerShell
 winget install -e --id Microsoft.VisualStudioCode
@@ -13,6 +10,8 @@ winget install -e --id Git.Git
 winget install -e --id GnuPG.Gpg4win
 winget install -e --id Google.Chrome
 winget install -e --id Mikrotik.Winbox
+winget install -e --id Obsidian.Obsidian
+winget install -e --id Nextcloud.NextcloudDesktop
 # install source code pro font
 
 if ($installProgramming -eq "y") {
@@ -27,7 +26,7 @@ if ($installProgramming -eq "y") {
 
 if ($installHam -eq "y") {
     winget install -e --id HamRadioDeluxe.HamRadioDeluxe
-    winget install -e --id K1JT.wsjtx
+    winget install -e --id JoeTaylor.WSJT-X
 }
 
 if ($installGames -eq "y") {
