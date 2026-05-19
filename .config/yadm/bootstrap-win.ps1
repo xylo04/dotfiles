@@ -1,3 +1,7 @@
+# Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+# Unblock-File .\bootstrap-win.ps1
+# .\bootstrap-win.ps1
+
 $installProgramming = Read-Host -Prompt "Install programming packages? (y/n)"
 $installHam = Read-Host -Prompt "Install ham radio packages? (y/n)"
 $installGames = Read-Host -Prompt "Install gaming packages? (y/n)"
