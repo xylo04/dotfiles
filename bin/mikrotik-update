@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+
+set -u
+
+IPS=(
+	"192.168.1.1"
+	"192.168.1.5"
+	"192.168.1.6"
+	"10.20.15.5"
+)
+
+SSH_USER="${MIKROTIK_SSH_USER:-}"
+SSH_OPTS=(
+	-o BatchMode=yes
+	-o ConnectTimeout=10
+	-o StrictHostKeyChecking=accept-new
+)
+
+ok_count=0
+fail_count=0
+
+get_tomorrow_for_major() {
+	local major="$1"
+
+	if [[ "$major" == "6" ]]; then
+		date +"%b/%d/%Y" | tr '[:upper:]' '[:lower:]'
+	else
+		date +"%Y-%m-%d"
+	fi
+}
+
+run_on_router() {
+	local ip="$1"
+	local target
+	local version
+	local major
+	local tomorrow
+
+	if [[ -n "$SSH_USER" ]]; then
+		target="$SSH_USER@$ip"
+	else
+		target="$ip"
+	fi
+
+	echo "==> $ip"
+
+	version="$(ssh "${SSH_OPTS[@]}" "$target" ':put [/system resource get version]' 2>/dev/null | tr -d '\r' || true)"
+	if [[ -z "$version" ]]; then
+		echo "  ERROR: Could not connect or read RouterOS version"
+		((fail_count++))
+		return
+	fi
+
+	major="${version%%.*}"
+	tomorrow="$(get_tomorrow_for_major "$major")"
+
+	if ssh "${SSH_OPTS[@]}" "$target" \
+		"/system package update check-for-updates once; \
+		 /system package update download; \
+		 :local sid [/system scheduler find where name=\"reboot\"]; \
+		 :if ([:len \$sid] = 0) do={:error \"scheduler reboot not found\"}; \
+		 :local st [/system scheduler get \$sid start-time]; \
+		 /system scheduler set \$sid start-date=\"$tomorrow\"; \
+		 :put (\"reboot scheduler moved to \".[/system scheduler get \$sid start-date].\" at \".\$st)"; then
+		echo "  OK: version=$version, start-date set to $tomorrow"
+		((ok_count++))
+	else
+		echo "  ERROR: command sequence failed"
+		((fail_count++))
+	fi
+}
+
+for ip in "${IPS[@]}"; do
+	run_on_router "$ip"
+done
+
+echo
+echo "Completed: $ok_count succeeded, $fail_count failed"
+
+if ((fail_count > 0)); then
+	exit 1
+fi
