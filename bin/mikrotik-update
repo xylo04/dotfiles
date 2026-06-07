@@ -23,9 +23,9 @@ get_tomorrow_for_major() {
 	local major="$1"
 
 	if [[ "$major" == "6" ]]; then
-		date +"%b/%d/%Y" | tr '[:upper:]' '[:lower:]'
+		date -d tomorrow +"%b/%d/%Y" | tr '[:upper:]' '[:lower:]'
 	else
-		date +"%Y-%m-%d"
+		date -d tomorrow +"%Y-%m-%d"
 	fi
 }
 
