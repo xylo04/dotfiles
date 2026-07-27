@@ -1,0 +1,75 @@
+#!/bin/bash
+
+set -euo pipefail
+
+PHONE_API_HOST="phone.xylo04.net"
+
+RAW_NUM="${1:-}"
+if [[ -z "$RAW_NUM" ]]; then
+	echo "Usage: $(basename "$0") <phone-number-or-tel-uri>" >&2
+	exit 1
+fi
+
+CLEAN_NUM=$(echo "$RAW_NUM" | sed 's/[^0-9]//g')
+if [[ -z "$CLEAN_NUM" ]]; then
+	echo "No digits found in input: $RAW_NUM" >&2
+	exit 1
+fi
+
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+load_env_file() {
+	local env_file="$1"
+	[[ -f "$env_file" ]] || return 1
+	set -a
+	# shellcheck disable=SC1090
+	source "$env_file"
+	set +a
+	return 0
+}
+
+# Prefer an already-exported variable, otherwise try common .env locations.
+: "${DIAL_PHONE_USER:=}"
+: "${DIAL_PHONE_PASSWORD:=}"
+if [[ -z "$DIAL_PHONE_USER" || -z "$DIAL_PHONE_PASSWORD" ]]; then
+	load_env_file "$SCRIPT_DIR/.env" || true
+	load_env_file "$HOME/.config/dial-phone/.env" || true
+fi
+
+if [[ -z "$DIAL_PHONE_USER" ]]; then
+	cat >&2 <<'EOF'
+Missing DIAL_PHONE_USER.
+
+Set it in your shell:
+	export DIAL_PHONE_USER='your-username'
+
+Or create one of these files with:
+	DIAL_PHONE_USER='your-username'
+
+	~/.config/dial-phone/.env
+	(or alongside this script as .env)
+EOF
+	exit 1
+fi
+
+if [[ -z "$DIAL_PHONE_PASSWORD" ]]; then
+	cat >&2 <<'EOF'
+Missing DIAL_PHONE_PASSWORD.
+
+Set it in your shell:
+	export DIAL_PHONE_PASSWORD='your-password'
+
+Or create one of these files with:
+	DIAL_PHONE_PASSWORD='your-password'
+
+	~/.config/dial-phone/.env
+	(or alongside this script as .env)
+EOF
+	exit 1
+fi
+
+curl -sG "http://${PHONE_API_HOST}/cgi-bin/api-make_call" \
+    --data-urlencode "login=${DIAL_PHONE_USER}" \
+	--data-urlencode "password=${DIAL_PHONE_PASSWORD}" \
+    --data-urlencode "account=0" \
+	--data-urlencode "phonenumber=${CLEAN_NUM}"
