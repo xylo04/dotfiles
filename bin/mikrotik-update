@@ -55,11 +55,34 @@ run_on_router() {
 	tomorrow="$(get_tomorrow_for_major "$major")"
 
 	if ssh "${SSH_OPTS[@]}" "$target" \
-		"/system package update check-for-updates once; \
-		 /system package update download; \
-		 :local sid [/system scheduler find where name=\"reboot\"]; \
+		":local sid [/system scheduler find where name=\"reboot\"]; \
 		 :if ([:len \$sid] = 0) do={:error \"scheduler reboot not found\"}; \
 		 :local st [/system scheduler get \$sid start-time]; \
+		 :local scheduledDate [/system scheduler get \$sid start-date]; \
+		 :local updateStatus [/system package update get status]; \
+		 :local latestVersion [/system package update get latest-version]; \
+		 :local installedVersion [/system package update get installed-version]; \
+		 :if (\$updateStatus~\"^Downloaded, please reboot\") do={ \
+		     :put (\"update \".\$latestVersion.\" already downloaded; reboot pending\"); \
+		 } else={ \
+		     :if ((\$scheduledDate = \"$tomorrow\") && ([:len \$latestVersion] > 0) && (\$latestVersion != \$installedVersion)) do={ \
+		         :put (\"update \".\$latestVersion.\" already scheduled for reboot; skipping download\"); \
+		     } else={ \
+		         /system package update check-for-updates once; \
+		         :local checks 0; \
+		         :while ((\$checks < 30) && ([/system package update get status] = \"finding out latest version...\")) do={ \
+		             :delay 1s; \
+		             :set checks (\$checks + 1); \
+		         }; \
+		         :set updateStatus [/system package update get status]; \
+		         :set latestVersion [/system package update get latest-version]; \
+		         :if (\$updateStatus~\"^Downloaded, please reboot\") do={ \
+		             :put (\"update \".\$latestVersion.\" already downloaded; reboot pending\"); \
+		         } else={ \
+		             /system package update download; \
+		         }; \
+		     }; \
+		 }; \
 		 /system scheduler set \$sid start-date=\"$tomorrow\"; \
 		 :put (\"reboot scheduler moved to \".[/system scheduler get \$sid start-date].\" at \".\$st)"; then
 		echo "  OK: version=$version, start-date set to $tomorrow"
