@@ -14,6 +14,7 @@ SSH_OPTS=(
 	-o BatchMode=yes
 	-o ConnectTimeout=10
 	-o StrictHostKeyChecking=accept-new
+	-o WarnWeakCrypto=no-pq-kex
 )
 
 ok_count=0
