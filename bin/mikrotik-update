@@ -14,7 +14,6 @@ SSH_OPTS=(
 	-o BatchMode=yes
 	-o ConnectTimeout=10
 	-o StrictHostKeyChecking=accept-new
-	-o WarnWeakCrypto=no-pq-kex
 )
 
 ok_count=0
@@ -27,6 +26,45 @@ get_tomorrow_for_major() {
 		date -d tomorrow +"%b/%d/%Y" | tr '[:upper:]' '[:lower:]'
 	else
 		date -d tomorrow +"%Y-%m-%d"
+	fi
+}
+
+diagnose_bad_http() {
+	local target="$1"
+	local state
+	local total
+	local fetch_result
+	local npk_files
+
+	echo "  DIAGNOSIS: 'bad HTTP response' is usually misleading here."
+	echo "    It commonly means a failed .npk download wedged RouterOS's updater, not that HTTP is broken."
+
+	state="$(ssh "${SSH_OPTS[@]}" "$target" \
+		':put ("board=".[/system resource get board-name]); :put ("free=".[/system resource get free-hdd-space]); :put ("total=".[/system resource get total-hdd-space])' \
+		2>/dev/null | tr -d '\r' || true)"
+	printf '%s\n' "$state" | sed 's/^/    /'
+	npk_files="$(ssh "${SSH_OPTS[@]}" "$target" '/file print detail' 2>/dev/null | tr -d '\r' | grep -E 'name=.*\.npk|size=0' || true)"
+	if [[ -n "$npk_files" ]]; then
+		echo "    Package-file evidence:"
+		printf '%s\n' "$npk_files" | sed 's/^/      /'
+	fi
+
+	fetch_result="$(ssh "${SSH_OPTS[@]}" "$target" \
+		'/tool fetch url="https://upgrade.mikrotik.com/routeros/NEWESTa7.stable" dst-path=update-endpoint-check.txt; :put ("probe-body=".[/file get update-endpoint-check.txt contents]); /file remove update-endpoint-check.txt' \
+		2>/dev/null | tr -d '\r' || true)"
+	if grep -q '^probe-body=[0-9]' <<<"$fetch_result"; then
+		echo "    HTTP probe: OK (the MikroTik update endpoint is reachable; network/DNS/TLS are not the cause)."
+	else
+		echo "    HTTP probe: FAILED (this one may really be a network/DNS/TLS problem)."
+	fi
+
+	total="$(sed -n 's/^total=//p' <<<"$state" | head -n1)"
+	if [[ "$total" =~ ^[0-9]+$ ]] && ((total <= 16777216)); then
+		echo "    LIKELY CAUSE: 16 MB flash cannot stage the new RouterOS package beside the running OS."
+		echo "    A reboot may clear this error, but the durable upgrade path is netinstall."
+	else
+		echo "    LIKELY CAUSE: updater state is wedged after a failed download; storage is not at the 16 MB ceiling."
+		echo "    Reboot the router, then rerun this script."
 	fi
 }
 
@@ -55,41 +93,61 @@ run_on_router() {
 	major="${version%%.*}"
 	tomorrow="$(get_tomorrow_for_major "$major")"
 
-	if ssh "${SSH_OPTS[@]}" "$target" \
+	local remote_output
+	local ssh_rc
+
+	remote_output="$(ssh "${SSH_OPTS[@]}" "$target" \
 		":local sid [/system scheduler find where name=\"reboot\"]; \
 		 :if ([:len \$sid] = 0) do={:error \"scheduler reboot not found\"}; \
 		 :local st [/system scheduler get \$sid start-time]; \
-		 :local scheduledDate [/system scheduler get \$sid start-date]; \
 		 :local updateStatus [/system package update get status]; \
 		 :local latestVersion [/system package update get latest-version]; \
 		 :local installedVersion [/system package update get installed-version]; \
 		 :if (\$updateStatus~\"^Downloaded, please reboot\") do={ \
 		     :put (\"update \".\$latestVersion.\" already downloaded; reboot pending\"); \
 		 } else={ \
-		     :if ((\$scheduledDate = \"$tomorrow\") && ([:len \$latestVersion] > 0) && (\$latestVersion != \$installedVersion)) do={ \
-		         :put (\"update \".\$latestVersion.\" already scheduled for reboot; skipping download\"); \
+		     /system package update check-for-updates once; \
+		     :local checks 0; \
+		     :while ((\$checks < 30) && ([/system package update get status] = \"finding out latest version...\")) do={ \
+		         :delay 1s; \
+		         :set checks (\$checks + 1); \
+		     }; \
+		     :set updateStatus [/system package update get status]; \
+		     :set latestVersion [/system package update get latest-version]; \
+		     :set installedVersion [/system package update get installed-version]; \
+		     :if (\$updateStatus~\"^ERROR\") do={ \
+		         :error (\"update check failed: \".\$updateStatus); \
+		     }; \
+		     :if (([:len \$latestVersion] = 0) || (\$latestVersion = \$installedVersion)) do={ \
+		         :put (\"already up to date at \".\$installedVersion); \
 		     } else={ \
-		         /system package update check-for-updates once; \
-		         :local checks 0; \
-		         :while ((\$checks < 30) && ([/system package update get status] = \"finding out latest version...\")) do={ \
-		             :delay 1s; \
-		             :set checks (\$checks + 1); \
-		         }; \
+		         /system package update download; \
 		         :set updateStatus [/system package update get status]; \
-		         :set latestVersion [/system package update get latest-version]; \
 		         :if (\$updateStatus~\"^Downloaded, please reboot\") do={ \
-		             :put (\"update \".\$latestVersion.\" already downloaded; reboot pending\"); \
+		             :put (\"update \".\$latestVersion.\" downloaded; reboot pending\"); \
 		         } else={ \
-		             /system package update download; \
+		             :error (\"update download failed: \".\$updateStatus); \
 		         }; \
 		     }; \
 		 }; \
-		 /system scheduler set \$sid start-date=\"$tomorrow\"; \
-		 :put (\"reboot scheduler moved to \".[/system scheduler get \$sid start-date].\" at \".\$st)"; then
-		echo "  OK: version=$version, start-date set to $tomorrow"
+		 :set updateStatus [/system package update get status]; \
+		 :if (\$updateStatus~\"^Downloaded, please reboot\") do={ \
+		     /system scheduler set \$sid start-date=\"$tomorrow\"; \
+		     :put (\"reboot scheduler moved to \".[/system scheduler get \$sid start-date].\" at \".\$st); \
+		 }; \
+		 :put \"__MIKROTIK_UPDATE_OK__\"")"
+	ssh_rc=$?
+	remote_output="${remote_output//$'\r'/}"
+	printf '%s\n' "$remote_output" | sed '/^__MIKROTIK_UPDATE_OK__$/d'
+
+	if ((ssh_rc == 0)) && grep -qx '__MIKROTIK_UPDATE_OK__' <<<"$remote_output"; then
+		echo "  OK: version=$version"
 		((ok_count++))
 	else
 		echo "  ERROR: command sequence failed"
+		if grep -q 'bad HTTP response' <<<"$remote_output"; then
+			diagnose_bad_http "$target"
+		fi
 		((fail_count++))
 	fi
 }
